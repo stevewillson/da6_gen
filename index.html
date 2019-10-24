@@ -1,0 +1,133 @@
+<html>
+<meta charset="UTF-8">
+<head></head>
+<body>
+<div class="form-group">
+  <label for="da6csv">Choose the DA6 CSV file to upload</label>
+  <input type="file" id="da6csv" name="da6csv"/>
+</div>
+
+<div id="da6" class="da6">
+  <table id="da6_table">
+
+  </table>
+</div>
+
+<script src="js/jquery-3.4.1.min.js"></script>
+<script src="js/jquery.csv.min.js"></script>
+<script>
+
+var da6_pers_list = []
+
+// on a change, populate the da6
+$('#da6csv').on('change', function(event) {
+	var da6_file = event.target.files[0]
+	var reader = new FileReader()
+	reader.onload = function (e) {
+		//console.log(e.target.result);
+		var da6group = $.csv.toObjects(e.target.result)
+		// console.log(personnelGroup);
+		// add the entries in the personnelGroup to the personnel chooser
+		$.each(da6group, function (index, person) {
+			console.log("Index is: " + index);
+			console.log("Person is: " + person.toString());
+			// add all entries to the da6_pers_list
+			da6_pers_list.push(person)
+		})
+		// sort the list, first sort by rank, then sort by lastname
+		da6_pers_list = sort_list(da6_pers_list)
+		console.log(JSON.stringify(da6_pers_list))
+		generate_da6_table(da6_pers_list)
+	}
+	reader.readAsText(da6_file)
+})
+
+// this takes the input da6 list and sorts according to rank then name
+function sort_list (sort_file) {
+
+	// sort the pers list
+	var ordering = {} // map for efficient lookup of sortIndex
+	var sortOrder = ['MSG', 'SFC', 'SSG', 'SGT', 'CPL', 'SPC', 'PFC']
+	for (var i = 0; i < sortOrder.length; i++) {
+		ordering[sortOrder[i]] = i
+	}
+
+	sort_file.sort( function(a, b) {
+		return (ordering[a.Rank] - ordering[b.Rank]) || a.Person.localeCompare(b.Person)
+	})
+	return sort_file
+}
+
+
+// generate table
+function generate_da6_table (da6_pers_list) {
+	var da6_table = document.getElementById('da6_table')
+	for (var i = 0; i < da6_pers_list.length; i++) {
+		var new_row = da6_table.insertRow(-1);
+		var rank_cell = new_row.insertCell(0)
+		var name_cell = new_row.insertCell(1)
+		rank_cell.innerHTML = da6_pers_list[i].Rank
+		name_cell.innerHTML = da6_pers_list[i].Person
+	}
+}
+
+// NATURE OF DUTY
+
+// ORGANIZATION
+
+// FROM (Date)
+
+// TO (Date)
+
+// accept the list of names as a CSV file
+
+// columns RANK, NAME, DAYS SINCE LAST DUTY, DONSA DAYS SINCE LAST DUTY
+
+// days since last duty
+
+// allow selection of 'A', 'D', or 'U' for the DA 6
+
+
+// provide column data and will return the row and the number of days
+function getHighestDays (column) {
+
+  // iterate through the columns to determine the highest number of days
+
+  return rowNum
+
+}
+
+
+function setDutyDay (column, row) {
+  // specify a Soldier in 'row' at 'column' to be on duty
+
+}
+
+
+function setDonsaDutyDay (column) {
+
+  // change this duty day to a DONSA duty day (use a different counter for DONSA days)
+
+}
+
+
+
+
+// (1) Soldiers who are absent or otherwise not available because of leave, pass, special duty, temporary duty, illness in
+// line of duty, or any other authorized reason (not due to misconduct) will be indicated by the letter "A." When a new DA
+// Form 6 is initiated that carries over a nonchargeable status from the previous DA Form 6, a superscript number (for example, A3) will be manually added to the abbreviation "A" to indicate the last number charged, as shown on the previous DA
+// Form 6, before the Soldier entered upon the nonchargeable status. Entering such a number in the first column of a new DA
+// Form 6 eliminates the necessity for referring to the previous DA Form 6 when the Soldier returns to a chargeable status.
+// Note. Soldier on temporary duty travel that does not extend beyond regular duty hours will not qualify for an "A" for that
+// day of temporary duty.
+
+// (2) Soldiers eligible for detail who could not be selected because of previous detail or other duty will be indicated by
+// the letter "D."
+
+// (3) Soldiers not available because of being absent without leave, in arrest, in confinement, illness not in line of duty, or
+// otherwise not available as a result of their own misconduct will be indicated by the letter "U."
+
+</script>
+
+</body>
+</html>
