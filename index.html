@@ -5,18 +5,6 @@
 </head>
 <body>
 <div class="form-group">
-  <label for="da6csv">Choose the DA6 CSV file to upload</label>
-  <input type="file" id="da6csv" name="da6csv"/>
-</div>
-
-<script>
-// NATURE OF DUTY
-// ORGANIZATION
-// FROM (Date)
-// TO (Date)
-</script>
-
-<div class="form-group">
   <label  for="natureOfDuty">Nature of Duty</label>
   <input type="text" id="natureOfDuty" name="natureOfDuty"/>
 </div>
@@ -36,20 +24,23 @@
   <input type="text" id="toDate" name="toDate"/>
 </div>
 
+<div class="form-group">
+  <label for="da6csv">Choose the DA6 CSV file to upload</label>
+  <input type="file" id="da6csv" name="da6csv"/>
+</div>
+<hr>
 <div id="da6" class="da6">
-  <table id="da6_table">
-
+  <table id="da6_table" class="table">
   </table>
 </div>
+
 
 <script src="js/jquery-3.4.1.min.js"></script>
 <script src="js/jquery.csv.min.js"></script>
 <script src="js/luxon.min.js"></script>
-
 <script>
 
 var DateTime = luxon.DateTime
-
 var da6_pers_list = []
 
 // on a change, populate the da6
@@ -57,13 +48,9 @@ $('#da6csv').on('change', function(event) {
   var da6_file = event.target.files[0]
   var reader = new FileReader()
   reader.onload = function (e) {
-    //console.log(e.target.result);
     var da6group = $.csv.toObjects(e.target.result)
-    // console.log(personnelGroup);
     // add the entries in the personnelGroup to the personnel chooser
     $.each(da6group, function (index, person) {
-      //console.log("Index is: " + index);
-      //console.log("Person is: " + person.toString());
       // add all entries to the da6_pers_list
 			// only add rows with people in them
 			if (person.Person !== '') {
@@ -72,29 +59,23 @@ $('#da6csv').on('change', function(event) {
     })
     // sort the list, first sort by rank, then sort by lastname
     da6_pers_list = sort_list(da6_pers_list)
-    //console.log(JSON.stringify(da6_pers_list))
-
 		for (var i = 0; i < da6_pers_list.length; i++) {
 			populateDutyDays(da6_pers_list, i)
 		}
-
 		assignDuty(da6_pers_list, 0)
-
-    generate_da6_table(da6_pers_list)
+    generateDa6Table(da6_pers_list)
   }
   reader.readAsText(da6_file)
 })
 
 // this takes the input da6 list and sorts according to rank then name
 function sort_list (sort_file) {
-
   // sort the pers list
   var ordering = {} // map for efficient lookup of sortIndex
   var sortOrder = ['MSG', 'SFC', 'SSG', 'SGT', 'CPL', 'SPC', 'PFC']
   for (var i = 0; i < sortOrder.length; i++) {
     ordering[sortOrder[i]] = i
   }
-
   sort_file.sort( function(a, b) {
     return (ordering[a.Rank] - ordering[b.Rank]) || a.Person.localeCompare(b.Person)
   })
@@ -102,7 +83,7 @@ function sort_list (sort_file) {
 }
 
 function populateDutyDays (da6_pers_list, rowNum) {
-  // see if a cell is not a number, if it is not a number ('A', 'D', or 'U')
+  // check if a cell is not a number, if it is not a number ('A', 'D', or 'U')
   // then do not count that day
 	var daysSinceLast = da6_pers_list[rowNum]['Days Since Last']
 	if (!isNaN(parseInt(daysSinceLast))) {
@@ -127,9 +108,13 @@ function adjustRowAvailability (da6_pers_list, rowNum) {
 	catch (err) {
 		dayVal = 0
 	}
+	// 'A' - don't increment days since duty
+	// 'U' or 'D' - do increment the days since duty
   for (var i = 0; i < 40; i++) {
-    if (isNaN(da6_pers_list[rowNum]['Duty'][i])) { 
+    if (da6_pers_list[rowNum]['Duty'][i] == 'A') { 
       continue
+		} else if (isNaN(da6_pers_list[rowNum]['Duty'][i])) { 
+			dayVal++
     } else {
       da6_pers_list[rowNum]['Duty'][i] = dayVal++
     }
@@ -153,13 +138,16 @@ function assignDuty (da6_list, column) {
     var soldierIndex = soldierDuty.indexOf(highestDays)
     // now reset the days to '0'
 
-		// this will wipe out any future non-duty days, need to handle that case
     // don't overwrite 'A' 'U' or 'D'
+		// 'A' - don't increment days since duty
+		// 'U' or 'D' - do increment the days since duty
     var dayValue = 0
     for (var j = col; j < 40; j++) {
 			// check to see if the value is not a number
-			if (isNaN(parseInt(da6_list[soldierIndex]['Duty'][j]))) {
+		  if (da6_list[soldierIndex]['Duty'][j] == 'A') {
         continue
+			} else if (isNaN(parseInt(da6_list[soldierIndex]['Duty'][j]))) {
+				dayValue++
 			} else {
 				da6_list[soldierIndex]['Duty'][j] = dayValue++
 			}
@@ -168,7 +156,7 @@ function assignDuty (da6_list, column) {
 }
 
 // generate table
-function generate_da6_table (da6_pers_list) {
+function generateDa6Table (da6_pers_list) {
 
   // write a header row that will have the month
 
@@ -197,47 +185,76 @@ function generate_da6_table (da6_pers_list) {
 	duty_roster_cell.innerHTML = 'DUTY ROSTER'
 	duty_roster_cell.colSpan = 2
 	var natureOfDutyCell = first_row.insertCell(-1)
-	natureOfDutyCell.innerHTML = 'NATURE OF DUTY\n' + natureOfDuty
+	natureOfDutyCell.innerHTML = 'NATURE OF DUTY<br />' + natureOfDuty
 	natureOfDutyCell.colSpan = 12
 	var orgCell = first_row.insertCell(-1)
-	orgCell.innerHTML = 'ORGANIZATION\n' + organization
+	orgCell.innerHTML = 'ORGANIZATION<br />' + organization
 	orgCell.colSpan = 14
 	var fromCell = first_row.insertCell(-1)
-	fromCell.innerHTML = 'FROM (Date)\n' + fromDateVal.toFormat('dd MMM')
+	fromCell.innerHTML = 'FROM (Date)<br />' + fromDateVal.toFormat('dd MMM')
 	fromCell.colSpan = 8
 	var toCell = first_row.insertCell(-1)
-	toCell.innerHTML = 'TO (Date)\n' + toDateVal.toFormat('dd MMM')
+	toCell.innerHTML = 'TO (Date)<br />' + toDateVal.toFormat('dd MMM')
 	toCell.colSpan = 7
-	
-
 
 	// draw the header
-  var new_row = da6_table.insertRow(-1);
-	var grade_cell = new_row.insertCell(-1)
+  var newRow = da6_table.insertRow(-1);
+	var grade_cell = newRow.insertCell(-1)
 	grade_cell.innerHTML = 'GRADE'
-	var name_cell = new_row.insertCell(-1)
-	name_cell.innerHTML = 'NAME'
-  var date_cell = new_row.insertCell(-1)
+	grade_cell.rowSpan = 2
+	var nameCell = newRow.insertCell(-1)
+	nameCell.innerHTML = 'NAME'
+	nameCell.rowSpan = 2
+  var date_cell = newRow.insertCell(-1)
 	date_cell.innerHTML = 'Month'
-	var day_cell 
+
+	// insert the second row for the date
+	var dayCell 
+	var monthNameCell
+  var secondNewRow = da6_table.insertRow(-1)
+	dayCell = secondNewRow.insertCell(-1)
+	dayCell.innerHTML = 'Day'
+	var curMonth
+	var monthCellSpanWidth = 0
+	var curMonthIndex = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
 	var currentDay = fromDateVal
 	for (var h = 0; h < 40; h++) {
-    day_cell = new_row.insertCell(-1)
-		day_cell.innerHTML = currentDay.day
+    dayCell = secondNewRow.insertCell(-1)
+		dayCell.innerHTML = currentDay.day
+		if (h == 0) {
+			monthNameCell = newRow.insertCell(-1)
+		  curMonth = currentDay.month
+			monthNameCell.innerHTML = curMonthIndex[parseInt(curMonth) - 1]
+		}
+		if (curMonth != currentDay.month) {
+		  curMonth = currentDay.month
+			// set the monthNameCell span and then update the month
+			monthNameCell.colSpan = monthCellSpanWidth
+			monthNameCell = newRow.insertCell(-1)
+			monthCellSpanWidth = 0
+			monthNameCell.innerHTML = curMonthIndex[parseInt(curMonth) - 1]
+		}
+		if (h == 39) {
+			// this is the last time through, set the final month spanwidth
+			monthCellSpanWidth++
+			monthNameCell.colSpan = monthCellSpanWidth
+		}
     currentDay = currentDay.plus({ days: 1 })
+		monthCellSpanWidth++
 	}
 
   for (var i = 0; i < da6_pers_list.length; i++) {
-    var new_row = da6_table.insertRow(-1);
-    var rank_cell = new_row.insertCell(-1)
-    var name_cell = new_row.insertCell(-1)
+    var newRow = da6_table.insertRow(-1);
+    var rank_cell = newRow.insertCell(-1)
+    var nameCell = newRow.insertCell(-1)
     var newCell
 
     rank_cell.innerHTML = da6_pers_list[i].Rank
-		name_cell.colSpan = 2
-    name_cell.innerHTML = da6_pers_list[i].Person
+		nameCell.colSpan = 2
+    nameCell.innerHTML = da6_pers_list[i].Person
     for (var j = 0; j < 40; j++) {
-      newCell = new_row.insertCell(-1)
+      newCell = newRow.insertCell(-1)
 			if (da6_pers_list[i]['Duty'][j] == 0) {
       	newCell.innerHTML = '///'
       } else { 
@@ -254,7 +271,7 @@ function changeText (tableCell) {
 
 	// adjust the da6_pers_list
 	var dayColumn = parseInt(tableCell.cellIndex) - 2
-	var dayRow = parseInt(tableCell.parentElement.rowIndex) - 2
+	var dayRow = parseInt(tableCell.parentElement.rowIndex) - 3
 
   if(tableCell.innerHTML == 'A') {
     da6_pers_list[dayRow]['Duty'][dayColumn] = 'D'
@@ -280,7 +297,7 @@ function changeText (tableCell) {
   //assignDuty(da6_pers_list, dayColumn)
   assignDuty(da6_pers_list, 0)
 
-  generate_da6_table(da6_pers_list)
+  generateDa6Table(da6_pers_list)
 
 }
 
