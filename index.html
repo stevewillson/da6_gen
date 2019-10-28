@@ -25,12 +25,17 @@
 </div>
 
 <div class="form-group">
+  <label  for="">People per duty</label>
+  <input type="number" id="peoplePerDuty" name="peoplePerDuty"/>
+</div>
+
+<div class="form-group">
   <label for="da6csv">Choose the DA6 CSV file to upload</label>
   <input type="file" id="da6csv" name="da6csv"/>
 </div>
 <hr>
 <div id="da6" class="da6">
-  <table id="da6_table" class="table">
+  <table id="da6_table" class="table table-bordered">
   </table>
 </div>
 
@@ -43,7 +48,16 @@
 var DateTime = luxon.DateTime
 var da6_pers_list = []
 
-// on a change, populate the da6
+// Update the table when changing the number of people per task
+$('#peoplePerDuty').change( function () {
+	for (var i = 0; i < da6_pers_list.length; i++) {
+		adjustRowAvailability(da6_pers_list, i)
+	}
+  assignDuty(da6_pers_list, 0)
+  generateDa6Table(da6_pers_list)
+})
+
+// populate the DA6 when the CSV file is loaded
 $('#da6csv').on('change', function(event) {
   var da6_file = event.target.files[0]
   var reader = new FileReader()
@@ -112,57 +126,68 @@ function adjustRowAvailability (da6_pers_list, rowNum) {
 	// 'U' or 'D' - do increment the days since duty
   for (var i = 0; i < 40; i++) {
     if (da6_pers_list[rowNum]['Duty'][i] == 'A') { 
+			//if (i == 39) {
+				//da6_pers_list[rowNum]['Duty'][i] = 'A' + dayVal  
+			//}
       continue
 		} else if (isNaN(da6_pers_list[rowNum]['Duty'][i])) { 
 			dayVal++
+			//if (i == 39) {
+				//da6_pers_list[rowNum]['Duty'][i] = da6_pers_list[rowNum]['Duty'][i] + dayVal  
+			//}
     } else {
       da6_pers_list[rowNum]['Duty'][i] = dayVal++
     }
   }
 }
 
-
+// Go column by column and set the person with the highest days since the last duty
+// to have duty for that day
 function assignDuty (da6_list, column) {
   for(var col = column; col < 40; col++) {
     // assemble an array of the duty
-    var soldierDuty = []
-    for (var i = 0; i < da6_list.length; i++) {
-      var dutyDays = parseInt(da6_list[i]['Duty'][col])
-      if (isNaN(dutyDays)) { 
-        dutyDays = 0 
-      }
-      soldierDuty.push(dutyDays)
-    }
-    // now assign a duty to the Soldier with the highest days
-    var highestDays = Math.max(...soldierDuty)
-    var soldierIndex = soldierDuty.indexOf(highestDays)
-    // now reset the days to '0'
-
-    // don't overwrite 'A' 'U' or 'D'
-		// 'A' - don't increment days since duty
-		// 'U' or 'D' - do increment the days since duty
-    var dayValue = 0
-    for (var j = col; j < 40; j++) {
-			// check to see if the value is not a number
-		  if (da6_list[soldierIndex]['Duty'][j] == 'A') {
-        continue
-			} else if (isNaN(parseInt(da6_list[soldierIndex]['Duty'][j]))) {
-				dayValue++
-			} else {
-				da6_list[soldierIndex]['Duty'][j] = dayValue++
+		var peopleNeeded = parseInt($('#peoplePerDuty').val())
+		if (isNaN(peopleNeeded)) {
+			peopleNeeded = 1
+		}
+		for (var peopleToTask = 0; peopleToTask < peopleNeeded; peopleToTask++) {
+			var soldierDuty = []
+			for (var i = 0; i < da6_list.length; i++) {
+				var dutyDays = parseInt(da6_list[i]['Duty'][col])
+				if (isNaN(dutyDays)) { 
+					dutyDays = 0 
+				}
+				soldierDuty.push(dutyDays)
 			}
-    }
+			// now assign a duty to the Soldier with the highest days
+			var highestDays = Math.max(...soldierDuty)
+			var soldierIndex = soldierDuty.indexOf(highestDays)
+			// now reset the days to '0'
+
+			// don't overwrite 'A' 'U' or 'D'
+			// 'A' - don't increment days since duty
+			// 'U' or 'D' - do increment the days since duty
+			var dayValue = 0
+			for (var j = col; j < 40; j++) {
+				// check to see if the value is not a number
+				if (da6_list[soldierIndex]['Duty'][j] == 'A') {
+					continue
+				} else if (isNaN(parseInt(da6_list[soldierIndex]['Duty'][j]))) {
+					dayValue++
+				} else {
+					da6_list[soldierIndex]['Duty'][j] = dayValue++
+				}
+			}
+		}
   }
 }
 
-// generate table
+// Take the DA6 data structure and generate an HTML table
 function generateDa6Table (da6_pers_list) {
-
-  // write a header row that will have the month
-
   var da6_table = document.getElementById('da6_table')
-	while(da6_table.hasChildNodes())
-	{
+
+  // remove the current table
+	while(da6_table.hasChildNodes()) {
 		 da6_table.removeChild(da6_table.firstChild);
 	}
 
@@ -172,6 +197,7 @@ function generateDa6Table (da6_pers_list) {
 	var toDate = $('#toDate').val()
 	var fromDateVal = ''
 
+	// if there is no date set, use the current day
 	if (fromDate == '') {
 		fromDateVal = DateTime.local()
 	} else {
@@ -179,61 +205,62 @@ function generateDa6Table (da6_pers_list) {
 	}
   var toDateVal = fromDateVal.plus({ days: 39 })
 
-  // draw the first header
-	var first_row = da6_table.insertRow(-1)
-	var duty_roster_cell = first_row.insertCell(-1)
-	duty_roster_cell.innerHTML = 'DUTY ROSTER'
-	duty_roster_cell.colSpan = 2
-	var natureOfDutyCell = first_row.insertCell(-1)
+  // the first three rows are the administrative data
+	var firstRow = da6_table.insertRow(-1)
+	var dutyRosterCell = firstRow.insertCell(-1)
+	dutyRosterCell.innerHTML = 'DUTY ROSTER'
+	dutyRosterCell.colSpan = 2
+	var natureOfDutyCell = firstRow.insertCell(-1)
 	natureOfDutyCell.innerHTML = 'NATURE OF DUTY<br />' + natureOfDuty
 	natureOfDutyCell.colSpan = 12
-	var orgCell = first_row.insertCell(-1)
+	var orgCell = firstRow.insertCell(-1)
 	orgCell.innerHTML = 'ORGANIZATION<br />' + organization
 	orgCell.colSpan = 14
-	var fromCell = first_row.insertCell(-1)
+	var fromCell = firstRow.insertCell(-1)
 	fromCell.innerHTML = 'FROM (Date)<br />' + fromDateVal.toFormat('dd MMM')
 	fromCell.colSpan = 8
-	var toCell = first_row.insertCell(-1)
+	var toCell = firstRow.insertCell(-1)
 	toCell.innerHTML = 'TO (Date)<br />' + toDateVal.toFormat('dd MMM')
 	toCell.colSpan = 7
 
-	// draw the header
-  var newRow = da6_table.insertRow(-1);
-	var grade_cell = newRow.insertCell(-1)
-	grade_cell.innerHTML = 'GRADE'
-	grade_cell.rowSpan = 2
-	var nameCell = newRow.insertCell(-1)
+  var secondRow = da6_table.insertRow(-1);
+	var gradeCell = secondRow.insertCell(-1)
+	gradeCell.innerHTML = 'GRADE'
+	gradeCell.rowSpan = 2
+	gradeCell.style = 'vertical-align: middle'
+	var nameCell = secondRow.insertCell(-1)
 	nameCell.innerHTML = 'NAME'
 	nameCell.rowSpan = 2
-  var date_cell = newRow.insertCell(-1)
+	nameCell.style = 'vertical-align: middle'
+  var date_cell = secondRow.insertCell(-1)
 	date_cell.innerHTML = 'Month'
 
 	// insert the second row for the date
 	var dayCell 
 	var monthNameCell
-  var secondNewRow = da6_table.insertRow(-1)
-	dayCell = secondNewRow.insertCell(-1)
+  var thirdRow = da6_table.insertRow(-1)
+	dayCell = thirdRow.insertCell(-1)
 	dayCell.innerHTML = 'Day'
 	var curMonth
 	var monthCellSpanWidth = 0
-	var curMonthIndex = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+	var monthIndex = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
 	var currentDay = fromDateVal
 	for (var h = 0; h < 40; h++) {
-    dayCell = secondNewRow.insertCell(-1)
+    dayCell = thirdRow.insertCell(-1)
 		dayCell.innerHTML = currentDay.day
 		if (h == 0) {
-			monthNameCell = newRow.insertCell(-1)
+			monthNameCell = secondRow.insertCell(-1)
 		  curMonth = currentDay.month
-			monthNameCell.innerHTML = curMonthIndex[parseInt(curMonth) - 1]
+			monthNameCell.innerHTML = monthIndex[parseInt(curMonth) - 1]
 		}
 		if (curMonth != currentDay.month) {
 		  curMonth = currentDay.month
 			// set the monthNameCell span and then update the month
 			monthNameCell.colSpan = monthCellSpanWidth
-			monthNameCell = newRow.insertCell(-1)
+			monthNameCell = secondRow.insertCell(-1)
 			monthCellSpanWidth = 0
-			monthNameCell.innerHTML = curMonthIndex[parseInt(curMonth) - 1]
+			monthNameCell.innerHTML = monthIndex[parseInt(curMonth) - 1]
 		}
 		if (h == 39) {
 			// this is the last time through, set the final month spanwidth
@@ -244,23 +271,25 @@ function generateDa6Table (da6_pers_list) {
 		monthCellSpanWidth++
 	}
 
+	// list soldiers, ranks, and duty assignments
+	// add the number of rows for how many soldiers were imported
   for (var i = 0; i < da6_pers_list.length; i++) {
-    var newRow = da6_table.insertRow(-1);
-    var rank_cell = newRow.insertCell(-1)
-    var nameCell = newRow.insertCell(-1)
-    var newCell
+    var dutyRow = da6_table.insertRow(-1);
+    var rankCell = dutyRow.insertCell(-1)
+    var nameCell = dutyRow.insertCell(-1)
+    var dutyCell
 
-    rank_cell.innerHTML = da6_pers_list[i].Rank
+    rankCell.innerHTML = da6_pers_list[i].Rank
 		nameCell.colSpan = 2
     nameCell.innerHTML = da6_pers_list[i].Person
     for (var j = 0; j < 40; j++) {
-      newCell = newRow.insertCell(-1)
+      dutyCell = dutyRow.insertCell(-1)
 			if (da6_pers_list[i]['Duty'][j] == 0) {
-      	newCell.innerHTML = '///'
+      	dutyCell.innerHTML = '///'
       } else { 
-				newCell.innerHTML = da6_pers_list[i]['Duty'][j]
+				dutyCell.innerHTML = da6_pers_list[i]['Duty'][j]
 			}
-      newCell.onclick = function () {
+      dutyCell.onclick = function () {
         changeText(this)
       }
     }
@@ -268,37 +297,49 @@ function generateDa6Table (da6_pers_list) {
 }
 
 function changeText (tableCell) {
-
 	// adjust the da6_pers_list
 	var dayColumn = parseInt(tableCell.cellIndex) - 2
 	var dayRow = parseInt(tableCell.parentElement.rowIndex) - 3
 
+	// update the da6 data structure and then regenerate the table
   if(tableCell.innerHTML == 'A') {
     da6_pers_list[dayRow]['Duty'][dayColumn] = 'D'
-    //tableCell.innerHTML = 'D'
   }
   else if(tableCell.innerHTML == 'D') {
     da6_pers_list[dayRow]['Duty'][dayColumn] = 'U'
-    //tableCell.innerHTML = 'U'
   }
   else if(tableCell.innerHTML == 'U') {
     da6_pers_list[dayRow]['Duty'][dayColumn] = 0
-    //tableCell.innerHTML = 0
   }
   else {
     da6_pers_list[dayRow]['Duty'][dayColumn] = 'A'
-    //tableCell.innerHTML = 'A'
   }
 
 	for (var i = 0; i < da6_pers_list.length; i++) {
 		adjustRowAvailability(da6_pers_list, i)
 	}
 
-  //assignDuty(da6_pers_list, dayColumn)
   assignDuty(da6_pers_list, 0)
 
   generateDa6Table(da6_pers_list)
 
+}
+
+function exportFinalStatus (da6_pers_list, finalDay) {
+	var exportDa6Json = []
+	var person = []
+  for (var i = 0; i < da6_pers_list.length; i++) {
+		person = []
+		person['Person'] = da6_pers_list[i].Person
+		person['Rank'] = da6_pers_list[i].Rank
+		person['Days Since Last'] = da6_pers_list[i]['Duty'][finalDay]
+		// calculate the days that pass since the final end date
+		// NEED TO WORK ON THIS PART - IMPROPER FORMAT
+		//var endDate = DateTime.fromFormat(da6_pers_list[i]['End Date'], 'mm/DD/yyyy')
+		//person['End Date'] = endDate.plus({ days: finalDay }).toFormat('mm/DD/yyyy')
+		exportDa6Json.push(person)
+	}
+	return exportDa6Json
 }
 
 // (1) Soldiers who are absent or otherwise not available because of leave, pass, special duty, temporary duty, illness in
