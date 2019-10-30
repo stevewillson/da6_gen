@@ -7,43 +7,48 @@
 <div class="form-group">
   <label  for="natureOfDuty">Nature of Duty</label>
   <input type="text" id="natureOfDuty" name="natureOfDuty"/>
-</div>
 
-<div class="form-group">
   <label  for="">Organization</label>
   <input type="text" id="organization" name="organization"/>
-</div>
 
-<div class="form-group">
   <label  for="">From (Date)</label>
   <input type="text" id="fromDate" name="fromDate"/>
-</div>
 
-<div class="form-group">
   <label  for="">To (Date)</label>
   <input type="text" id="toDate" name="toDate"/>
 </div>
 
 <div class="form-group">
   <label  for="">People per duty</label>
-  <input type="number" id="peoplePerDuty" name="peoplePerDuty"/>
+  <input type="number" id="peoplePerDuty" name="peoplePerDuty" value="1" />
+</div>
+
+<div class="form-check">
+	<input type="checkbox" class="form-check-input" id="checkHighlightWeekend">
+	<label class="form-check-label" for="checkHighlightWeekend">Highlight Weekends</label>
 </div>
 
 <div class="form-group">
   <label for="da6csv">Choose the DA6 CSV file to upload</label>
   <input type="file" id="da6csv" name="da6csv"/>
 </div>
-<div class="form-group">
-	<button id="generateDa6" type="button" class="btn btn-primary btn-lg">Generate DA6 Roster</button>
-</div>
 
 <div class="form-group">
+	<button id="generateDa6" type="button" class="btn btn-primary btn-lg">Generate DA6 Roster</button>
+
 	<button id="generateMemo" type="button" class="btn btn-primary btn-lg">Generate Memo</button>
+
+	<button id="generateFinalStatus" type="button" class="btn btn-primary btn-lg">Generate Final Duty Status</button>
 </div>
 
 <hr>
 <div id="da6" class="da6">
   <table id="da6_table" class="table table-bordered">
+  </table>
+</div>
+
+<div id="da6_memo" class="da6_memo">
+  <table id="da6_memo_table" class="table table-bordered">
   </table>
 </div>
 
@@ -61,6 +66,11 @@ $('#peoplePerDuty').change( function () {
 		adjustRowAvailability(da6_pers_list, i)
 	}
   assignDuty(da6_pers_list, 0)
+  generateDa6Table(da6_pers_list)
+})
+
+// allow interactive of highlighting weekends
+$('#checkHighlightWeekend').click( function () {
   generateDa6Table(da6_pers_list)
 })
 
@@ -119,9 +129,83 @@ $('#generateDa6').on('click', function () {
 })
 
 $('#generateMemo').on('click', function () {
-	alert('Function not implemented!\nPlease submit a pull request...\n\nhttps://www.github.com/stevewillson/da6_gen')
+	// detect if the table is generated, if not alert with a popup
+	if (da6_pers_list.length === 0) {
+		alert('Generate a DA6 before exporting the final status')
+		return
+	}
+  var da6_memo_table = document.getElementById('da6_memo_table')
 
+  // populate the memo table with the name of the Soldier(s) that have duty and then display that table
+
+  // remove the current table
+	while(da6_memo_table.hasChildNodes()) {
+		 da6_memo_table.removeChild(da6_memo_table.firstChild);
+	}
+	var headerRow = da6_memo_table.insertRow(-1)
+	var dateHeaderCell = headerRow.insertCell(-1)
+	dateHeaderCell.innerHTML = 'Date'
+	var nameHeaderCell = headerRow.insertCell(-1)
+	nameHeaderCell.innerHTML = 'Name'
+
+  var da6MemoInfo = generateMemoTable(da6_pers_list)
+	var personRow = ''
+	var dateCell = ''
+	var personCell = ''
+	for (var i = 0; i < da6MemoInfo.length; i++) {
+	  personRow = da6_memo_table.insertRow(-1)
+		dateCell = personRow.insertCell(-1)
+	  dateCell.innerHTML = DateTime.fromISO(da6MemoInfo[i]['date']).toISODate()
+		personCell = personRow.insertCell(-1)
+	  personCell.innerHTML = da6MemoInfo[i]['rank'] + ' ' + da6MemoInfo[i]['person']
+	}
 })
+
+$('#generateFinalStatus').on('click', function () {
+	// detect if the table is generated, if not alert with a popup
+	if (da6_pers_list.length === 0) {
+		alert('Generate a DA6 before exporting the final status')
+		return
+	}
+
+	var exportList = exportFinalStatus(da6_pers_list)
+
+	const replacer = (key, value) => value === null ? '' : value; // specify how you want to handle null values here
+	const header = Object.keys(exportList[0]);
+	let csv = exportList.map(row => header.map(fieldName => JSON.stringify(row[fieldName], replacer)).join(','));
+	csv.unshift(header.join(','));
+	csv = csv.join('\r\n');
+
+	//Download the file as CSV
+	var downloadLink = document.createElement("a");
+	var blob = new Blob(["\ufeff", csv]);
+	var url = URL.createObjectURL(blob);
+	downloadLink.href = url;
+	downloadLink.download = "da6_status.csv";  //Name the file here
+	document.body.appendChild(downloadLink);
+	downloadLink.click();
+	document.body.removeChild(downloadLink);
+})
+
+function generateMemoTable (da6_pers_list) {
+	// take the da6_pers_list with its current duty assignments and then return the information to generate the memo table
+	// specifically, return an object that has:
+	// { date: dutyDate, person: personName, rank: personRank }
+
+	// iterate through the list, add people with dutyStatus == 0 to the array
+	var da6MemoInfo = []
+	for (var i = 0; i < da6_pers_list[0]['Duty'].length; i++) {
+		for (var j = 0; j < da6_pers_list.length; j++) {
+	    if (da6_pers_list[j]['Duty'][i]['dutyStatus'] == 0) {
+				var dutyDate = da6_pers_list[j]['Duty'][i]['date']
+				var personName = da6_pers_list[j]['Person']
+				var personRank = da6_pers_list[j]['Rank']
+				da6MemoInfo.push({ date: dutyDate, person: personName, rank: personRank  })
+			}
+		}
+	}
+	return da6MemoInfo
+}
 
 // sorts the input with values Rank and Name according to rank (higher rank first) then name (alphabetically)
 function sortByRankAndName (sort_file) {
@@ -148,10 +232,9 @@ function generateDateRange (startDate, endDate) {
 }
 
 function populateDutyDays (da6_pers_list, rowNum, dateRange) {
-  // check if a cell is not a number, if it is not a number ('A', 'D', or 'U')
+  // check if the 'dutyStatus' is not a number, if it is 'A'
   // then do not count that day
-
-	// for now, assume that duty will be every day from the last day until now
+	// if it is 'D' or 'U' then do count that day toward the 'daysSinceLastDuty'
 	var daysSinceLastDuty = da6_pers_list[rowNum]['daysSinceLastDuty']
 	if (!isNaN(parseInt(daysSinceLastDuty))) {
 		daysSinceLastDuty = parseInt(daysSinceLastDuty)
@@ -172,23 +255,24 @@ function adjustRowAvailability (da6_pers_list, rowNum) {
   // see if a cell is not a number, if it is not a number ('A', 'D', or 'U')
   // then do not count that day
   try {
-		var dayVal =  parseInt(da6_pers_list[rowNum]['daysSinceLastDuty'])
+		var daysSinceLastDuty = parseInt(da6_pers_list[rowNum]['daysSinceLastDuty'])
 	}
 	catch (err) {
-		dayVal = 0
+		daysSinceLastDuty = 0
 	}
 	// 'A' - don't increment days since duty
 	// 'U' or 'D' - do increment the days since duty
+	// increment prior to setting the daysSinceLastDuty value
 	for (var i = 0; i < da6_pers_list[0]['Duty'].length; i++) {
     if (da6_pers_list[rowNum]['Duty'][i]['dutyStatus'] == 'A') { 
-      da6_pers_list[rowNum]['Duty'][i]['daysSinceLastDuty'] = dayVal
+      da6_pers_list[rowNum]['Duty'][i]['daysSinceLastDuty'] = daysSinceLastDuty
 		} else if (isNaN(da6_pers_list[rowNum]['Duty'][i]['dutyStatus'])) { 
-      da6_pers_list[rowNum]['Duty'][i]['daysSinceLastDuty'] = dayVal
-			dayVal++
+			daysSinceLastDuty++
+      da6_pers_list[rowNum]['Duty'][i]['daysSinceLastDuty'] = daysSinceLastDuty
     } else {
-      da6_pers_list[rowNum]['Duty'][i]['daysSinceLastDuty'] = dayVal
-      da6_pers_list[rowNum]['Duty'][i]['dutyStatus'] = dayVal
-      dayVal++
+			daysSinceLastDuty++
+      da6_pers_list[rowNum]['Duty'][i]['daysSinceLastDuty'] = daysSinceLastDuty
+      da6_pers_list[rowNum]['Duty'][i]['dutyStatus'] = daysSinceLastDuty
 		}
   }
 }
@@ -298,6 +382,13 @@ function generateDa6Table (da6_pers_list) {
     dayCell = thirdRow.insertCell(-1)
 		currentDay = DateTime.fromISO(da6_pers_list[0]['Duty'][h]['date'])
 		dayCell.innerHTML = currentDay.day
+		// have a checkbox 'highlight weekends' if checked highlight the weekends
+		if (document.getElementById('checkHighlightWeekend').checked) {
+			if (currentDay.weekday == 6 || currentDay.weekday == 7) {
+				dayCell.bgColor = 'Red'
+			}
+		}
+
 		if (h == 0) {
 			monthNameCell = secondRow.insertCell(-1)
 		  curMonth = currentDay.month
