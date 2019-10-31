@@ -411,8 +411,11 @@ function generateDa6Table (da6_pers_list) {
 		monthCellSpanWidth++
 	}
 	// continue this array to finish drawing the columns
-	monthCellSpanWidth = 0
-	monthNameCell = secondRow.insertCell(-1)
+	// only make 1 cell for the remainder of the space for the month block
+	if (h < 40) {
+		monthCellSpanWidth = 0
+		monthNameCell = secondRow.insertCell(-1)
+	}
 	for (h; h < 40; h++) {
     dayCell = thirdRow.insertCell(-1)
 		monthCellSpanWidth++
