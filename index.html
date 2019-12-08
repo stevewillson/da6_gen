@@ -2,6 +2,7 @@
 <meta charset="UTF-8">
 <head>
 	<link rel="stylesheet" href="css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/datepicker.min.css">
 </head>
 <body>
 <div class="form-group">
@@ -55,22 +56,10 @@
 <script src="js/jquery-3.4.1.min.js"></script>
 <script src="js/jquery.csv.min.js"></script>
 <script src="js/luxon.min.js"></script>
+<script src="js/datepicker.min.js"></script>
 <script>
 
-// Add 'edit mode'
-// add a 'hey you' function, a data structure that contains a Soldier and duty day they pulled duty, this will help with the future duty roster
-
-// maintain a list of 'exceptions' otherwise assume the person will be available for duty
-// provide the exception list when generating the duty roster
-// 
-// INPUT
-// beginning state
-// people to generate
-// exception list
-// start and end dates
-
-// OUTPUT
-// DA6
+// Add 'edit mode' - have the ability to 'lock in' the da6 and make minor edits
 
 var DateTime = luxon.DateTime
 var Interval = luxon.Interval
@@ -79,14 +68,29 @@ var exceptionArray = []
 var da6Struct = []
 
 // set the initial values of the date cells
-let toDateCell = document.getElementById('toDate');
 let fromDateCell = document.getElementById('fromDate');
+
+const fromDateCellPicker = datepicker(fromDateCell, {
+  formatter: (input, date, instance) => {
+    const value = date.toISOString().slice(0,10)
+    fromDateCell.value = value 
+  }
+})
 fromDateCell.value = DateTime.local().toISODate();
+
+let toDateCell = document.getElementById('toDate');
+
+const toDateCellPicker= datepicker(toDateCell, {
+  formatter: (input, date, instance) => {
+    const value = date.toISOString().slice(0,10)
+    toDateCell.value = value 
+  }
+})
 toDateCell.value = DateTime.local().plus({ days: 39 }).toISODate();
 
 // Update the table when changing the number of people per task
 document.querySelector('#peoplePerDuty').addEventListener('click',() => {
-// ADD CODE TO ALLOW FOR MULTIPLE PEOPLE TO BE SELECTED
+  processDa6();
 })
 
 // allow interactive of highlighting weekends

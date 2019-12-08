@@ -1,14 +1,7 @@
-Rank,Person,daysSinceLastDuty
+Rank,Name,daysSinceLastDuty
 SFC,Soldier A,1
 MSG,Soldier B,1
 SGT,Soldier C,2
 SSG,Soldier D,3
 SFC,Soldier E,4
-MSG,Soldier F,5
-SGT,Soldier G,7
-SSG,Soldier H,8
-SFC,Soldier I,9
-MSG,Soldier J,9
-SGT,Soldier K,9
-SSG,Soldier L,1
 ,,,
