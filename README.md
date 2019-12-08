@@ -3,7 +3,7 @@ Generator for a DA6 Duty Roster
 
 Upload a .csv file with the following columns:
 
-Rank, Person, Days Since Last
+Rank, Name, Days Since Last
 
 This automatically creates a DA6 roster which can be copied to Excel for easy printing
 
